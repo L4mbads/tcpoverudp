@@ -37,6 +37,22 @@ class Connection:
         self.receive_thread = None # Conditionally started
         self.running = False
 
+    def _retransmit_segment_callback(self, seq_num: int, packed_segment_data: bytes):
+        """
+        Callback for FlowControl to retransmit a segment.
+        'packed_segment_data' is the actual bytes of the segment that was originally sent.
+        'seq_num' is the sequence number of that segment.
+        """
+        if self.running and self.remote_addr and self.state not in [ConnectionState.CLOSED, ConnectionState.TIME_WAIT]:
+            print(f"Connection ({self.local_addr[1]}): Retransmitting segment (Seq: {seq_num}) to {self.remote_addr}")
+            try:
+                self.socket.sendto(packed_segment_data, self.remote_addr)
+            except Exception as e:
+                print(f"Connection ({self.local_addr[1]}): Error during retransmission of segment (Seq: {seq_num}): {e}")
+        else:
+            print(f"Connection ({self.local_addr[1]}): Cannot retransmit segment (Seq: {seq_num}), connection not in a valid state (State: {self.state}, Running: {self.running})")
+
+
     # listen() and accept() are largely superseded by server's direct handling
     # but kept for conceptual reference or potential other uses if API evolves.
     def listen(self) -> None:

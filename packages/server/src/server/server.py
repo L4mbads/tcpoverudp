@@ -218,21 +218,22 @@ class ChatServer:
             # ---- START DEBUG PRINT ----
             print(f"Server: Conn for {addr} in SYN_RECEIVED. Processing segment with Flags={segment.flags}, Seq={segment.seq_num}, Ack={segment.ack_num}. Expecting AckNum={ (conn.local_seq_num + 1) & Segments.ack_max } for my SYN (which was Seq={conn.local_seq_num}).")
             # ---- END DEBUG PRINT ----
-            if (segment.flags == Segments.ACK_flag and # Should be ONLY ACK flag
-                segment.ack_num == (conn.local_seq_num + 1) & Segments.ack_max ): # Check if it ACKs server's ISN+1
+            if (segment.flags == Segments.ACK_flag and
+                segment.ack_num == (conn.local_seq_num + 1) & Segments.ack_max ):
                 print(f"Server: ACK for SYN-ACK received from {addr} and validated. Establishing connection.")
                 conn.state = ConnectionState.ESTABLISHED
                 conn.remote_window = segment.window
-                # Server's local_seq_num (which was its ISN for the SYN-ACK) is now acknowledged.
-                # No need to increment conn.local_seq_num here again, as it's the ISN of the sent SYN.
-                # The next data server sends will use a new seq num or this one if it's also an ACK.
 
                 conn.start_background_threads(is_server_instance=True)
 
                 with self.lock:
                     user_info['last_heartbeat'] = time.time()
+                    # VVV UPDATE USER NAME TO PREVENT PENDING HANDSHAKE TIMEOUT VVV
+                    default_user_name = f"User-{addr[1]}"
+                    user_info['name'] = default_user_name
 
-                self.add_system_message(f"User from {addr} has connected.")
+                # VVV Use the updated name in the system message VVV
+                self.add_system_message(f"{default_user_name} ({addr[0]}:{addr[1]}) has connected.")
                 print(f"Server: Connection ESTABLISHED with {addr}. State: {conn.state}")
             else:
                 print(f"Server: For {addr} in SYN_RECEIVED, received packet was NOT the expected final ACK. Flags={segment.flags}, AckNum={segment.ack_num} vs Expected={(conn.local_seq_num + 1) & Segments.ack_max}")
