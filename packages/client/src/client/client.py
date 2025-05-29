@@ -192,7 +192,7 @@ class ChatClient:
         """Start the chat client"""
         try:
             # Setup curses
-            self._setup_curses()
+            # self._setup_curses()
 
             # Initialize connection
             self.connection = Connection(self.sock.getsockname(), self.sock)
