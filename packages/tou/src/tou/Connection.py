@@ -65,7 +65,15 @@ class Connection:
         if self.state != ConnectionState.CLOSED:
             raise RuntimeError("Connection must be closed before connecting")
 
-        self.remote_addr = remote_addr
+        try:
+            # Resolve hostname to IP address for consistent comparison
+            # This ensures 'localhost' becomes '127.0.0.1' (or equivalent)
+            resolved_host = socket.gethostbyname(remote_addr[0])
+            self.remote_addr = (resolved_host, remote_addr[1])
+            print(f"Client ({self.local_addr[1]}): Original remote address {remote_addr} resolved to {self.remote_addr}")
+        except socket.gaierror:
+            print(f"Client ({self.local_addr[1]}): ERROR - Could not resolve hostname {remote_addr[0]}")
+
         self.local_seq_num = random.randint(0, Segments.seq_max)
 
         # Send SYN
