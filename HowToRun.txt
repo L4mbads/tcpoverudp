@@ -1,0 +1,6 @@
+Pastiin Run Server dulu baru client biar gak error
+
+Buka 2 Terminal:
+Terminal 1: uv run -m server --host 0.0.0.0
+Terminal 2: uv run -m client
+
