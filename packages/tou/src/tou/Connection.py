@@ -1,11 +1,12 @@
+# Make sure these imports are present
 import socket
 import threading
 import time
 import random
 from typing import Optional
 from enum import Enum, auto
-from tou.Segments import Segments # Assuming this is correctly located
-from tou.FlowControl import FlowControl # Assuming this is correctly located
+from tou.Segments import Segments #
+from tou.FlowControl import FlowControl #
 
 class ConnectionState(Enum):
     """Connection states for the TOU protocol"""
@@ -24,33 +25,40 @@ class Connection:
     def __init__(self, local_addr: tuple[str, int], socket: socket.socket):
         self.local_addr = local_addr
         self.remote_addr = None
-        self.socket = socket # This socket is used for sending. For receiving, client uses it directly, server dispatcher feeds segments.
-        self.state = ConnectionState.CLOSED
+        self.socket = socket
+        self.state = ConnectionState.CLOSED # Ensure ConnectionState is defined/imported
         self.local_seq_num = 0
         self.remote_seq_num = 0
-        self.local_window = Segments.window_max # Max window size we can offer
-        self.remote_window = 0 # Learned from peer during handshake/data transfer
-        self.flow_control = FlowControl()
-        self.send_buffer = [] # Data to be sent by _send_loop
-        self.receive_buffer = [] # Data received and ready for application layer
+        self.local_window = Segments.window_max
+        self.remote_window = 0
+        self.flow_control = FlowControl() #
+
+        # VVV THIS IS THE CRUCIAL FIX VVV
+        # Ensure this line is present and correctly assigns the callback:
+        self.flow_control.set_retransmit_callback(self._retransmit_segment_callback)
+
+        self.send_buffer = []
+        self.receive_buffer = []
         self.send_thread = None
-        self.receive_thread = None # Conditionally started
+        self.receive_thread = None
         self.running = False
 
+    # VVV ENSURE THIS METHOD IS DEFINED IN YOUR Connection CLASS VVV
     def _retransmit_segment_callback(self, seq_num: int, packed_segment_data: bytes):
         """
         Callback for FlowControl to retransmit a segment.
         'packed_segment_data' is the actual bytes of the segment that was originally sent.
         'seq_num' is the sequence number of that segment.
         """
-        if self.running and self.remote_addr and self.state not in [ConnectionState.CLOSED, ConnectionState.TIME_WAIT]:
+        # Check if connection is in a state where sending is appropriate
+        if self.running and self.remote_addr and self.state not in [ConnectionState.CLOSED, ConnectionState.TIME_WAIT, ConnectionState.CLOSING, ConnectionState.LAST_ACK]:
             print(f"Connection ({self.local_addr[1]}): Retransmitting segment (Seq: {seq_num}) to {self.remote_addr}")
             try:
                 self.socket.sendto(packed_segment_data, self.remote_addr)
             except Exception as e:
                 print(f"Connection ({self.local_addr[1]}): Error during retransmission of segment (Seq: {seq_num}): {e}")
         else:
-            print(f"Connection ({self.local_addr[1]}): Cannot retransmit segment (Seq: {seq_num}), connection not in a valid state (State: {self.state}, Running: {self.running})")
+            print(f"Connection ({self.local_addr[1]}): Suppressed retransmission for segment (Seq: {seq_num}). Connection state: {self.state}, Running: {self.running}")
 
 
     # listen() and accept() are largely superseded by server's direct handling
